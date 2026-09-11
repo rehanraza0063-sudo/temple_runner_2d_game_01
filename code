@@ -1,0 +1,1706 @@
+from flask import Flask, render_template_string
+
+app = Flask(__name__)
+
+HTML = r"""
+<!DOCTYPE html>
+<html>
+<head>
+
+<title>Jungle Escape - Python Runner</title>
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+
+*{
+    box-sizing:border-box;
+    user-select:none;
+}
+
+body{
+    margin:0;
+    overflow:hidden;
+    font-family:Arial,sans-serif;
+    background:#111;
+}
+
+#game{
+    position:relative;
+    width:100vw;
+    height:100vh;
+    overflow:hidden;
+
+    background:
+    linear-gradient(
+        to bottom,
+        #55bde8 0%,
+        #b7edff 35%,
+        #3c8c32 36%,
+        #174d20 100%
+    );
+}
+
+/* ================= SKY ================= */
+
+.sun{
+    position:absolute;
+    width:90px;
+    height:90px;
+    background:#ffd54f;
+    border-radius:50%;
+    right:10%;
+    top:8%;
+    box-shadow:0 0 50px #ffd54f;
+}
+
+/* ================= JUNGLE ================= */
+
+.jungle{
+    position:absolute;
+    bottom:0;
+    width:22%;
+    height:65%;
+    background:#174d20;
+    z-index:1;
+}
+
+.jungle.left{
+    left:0;
+    clip-path:polygon(
+        0 20%,
+        60% 0,
+        100% 20%,
+        80% 100%,
+        0 100%
+    );
+}
+
+.jungle.right{
+    right:0;
+    clip-path:polygon(
+        0 20%,
+        40% 0,
+        100% 20%,
+        100% 100%,
+        20% 100%
+    );
+}
+
+/* ================= ROAD ================= */
+
+#road{
+    position:absolute;
+
+    width:65%;
+    height:100%;
+
+    left:17.5%;
+
+    background:
+    linear-gradient(
+        90deg,
+        #5b351c,
+        #9b6738 12%,
+        #b77b45 50%,
+        #9b6738 88%,
+        #5b351c
+    );
+
+    clip-path:polygon(
+        27% 0,
+        73% 0,
+        100% 100%,
+        0 100%
+    );
+
+    z-index:2;
+}
+
+/* ================= ROAD LINES ================= */
+
+.roadLine{
+    position:absolute;
+
+    width:7px;
+    height:90px;
+
+    background:white;
+
+    opacity:.7;
+
+    transform:skewX(-18deg);
+
+    animation:roadMove .65s linear infinite;
+}
+
+.line1{
+    left:39%;
+}
+
+.line2{
+    left:61%;
+}
+
+@keyframes roadMove{
+
+    from{
+        top:-100px;
+    }
+
+    to{
+        top:110%;
+    }
+
+}
+
+/* ================= HUD ================= */
+
+#hud{
+    position:absolute;
+
+    top:15px;
+    left:15px;
+    right:15px;
+
+    display:flex;
+    justify-content:space-between;
+
+    z-index:100;
+
+    color:white;
+
+    font-weight:bold;
+
+    font-size:19px;
+
+    text-shadow:2px 2px 5px black;
+}
+
+.hud{
+    background:rgba(0,0,0,.5);
+
+    padding:10px 15px;
+
+    border-radius:12px;
+}
+
+/* ================= PLAYER ================= */
+
+#player{
+
+    position:absolute;
+
+    width:60px;
+    height:100px;
+
+    bottom:80px;
+
+    left:calc(50% - 30px);
+
+    z-index:30;
+
+    transition:left .15s;
+}
+
+.playerHead{
+
+    width:30px;
+    height:30px;
+
+    margin:auto;
+
+    border-radius:50%;
+
+    background:#d89462;
+
+    border:3px solid #222;
+}
+
+.playerBody{
+
+    width:38px;
+    height:48px;
+
+    margin:2px auto;
+
+    border-radius:10px;
+
+    background:#1976d2;
+
+    border:3px solid #222;
+}
+
+.playerLeg{
+
+    position:absolute;
+
+    width:12px;
+    height:25px;
+
+    bottom:0;
+
+    background:#222;
+
+    border-radius:8px;
+}
+
+.playerLeg.left{
+    left:12px;
+}
+
+.playerLeg.right{
+    right:12px;
+}
+
+/* ================= JUMP ================= */
+
+.jump{
+
+    animation:playerJump .7s ease;
+
+}
+
+@keyframes playerJump{
+
+    0%{
+        bottom:80px;
+    }
+
+    50%{
+        bottom:270px;
+    }
+
+    100%{
+        bottom:80px;
+    }
+
+}
+
+/* ================= SLIDE ================= */
+
+.slide{
+
+    transform:scaleY(.55);
+
+    transform-origin:bottom;
+
+}
+
+/* ================= TIGER ================= */
+
+#tiger{
+
+    position:absolute;
+
+    width:90px;
+    height:75px;
+
+    left:calc(50% - 45px);
+
+    bottom:-50px;
+
+    z-index:20;
+
+    transition:bottom .5s;
+
+}
+
+/* tiger body */
+
+.tigerBody{
+
+    position:absolute;
+
+    width:70px;
+    height:45px;
+
+    left:10px;
+    top:20px;
+
+    background:#f28c28;
+
+    border:4px solid #222;
+
+    border-radius:50%;
+
+}
+
+/* tiger head */
+
+.tigerHead{
+
+    position:absolute;
+
+    width:42px;
+    height:42px;
+
+    left:0;
+    top:5px;
+
+    background:#f28c28;
+
+    border:4px solid #222;
+
+    border-radius:50%;
+
+}
+
+/* ears */
+
+.ear1,
+.ear2{
+
+    position:absolute;
+
+    width:18px;
+    height:18px;
+
+    background:#f28c28;
+
+    border:4px solid #222;
+
+    border-radius:50%;
+
+    top:-7px;
+
+}
+
+.ear1{
+    left:3px;
+}
+
+.ear2{
+    right:3px;
+}
+
+/* eyes */
+
+.eye{
+
+    position:absolute;
+
+    width:6px;
+    height:6px;
+
+    background:#111;
+
+    border-radius:50%;
+
+    top:16px;
+}
+
+.eye1{
+    left:10px;
+}
+
+.eye2{
+    right:10px;
+}
+
+/* tiger stripes */
+
+.stripe{
+
+    position:absolute;
+
+    width:5px;
+    height:22px;
+
+    background:#222;
+
+    transform:rotate(30deg);
+
+    z-index:5;
+
+}
+
+.s1{
+    left:38px;
+    top:25px;
+}
+
+.s2{
+    left:50px;
+    top:22px;
+}
+
+.s3{
+    left:62px;
+    top:25px;
+}
+
+/* ================= OBJECTS ================= */
+
+.object{
+
+    position:absolute;
+
+    z-index:25;
+
+}
+
+/* rock */
+
+.rock{
+
+    width:70px;
+    height:60px;
+
+    background:#555;
+
+    border:5px solid #333;
+
+    border-radius:55% 55% 20% 20%;
+
+}
+
+/* log */
+
+.log{
+
+    width:95px;
+    height:32px;
+
+    background:#713f18;
+
+    border:5px solid #40230c;
+
+    border-radius:20px;
+
+}
+
+/* tree */
+
+.tree{
+
+    width:65px;
+    height:110px;
+
+}
+
+.tree::before{
+
+    content:"";
+
+    position:absolute;
+
+    width:22px;
+    height:70px;
+
+    left:22px;
+    top:40px;
+
+    background:#633d1d;
+
+}
+
+.tree::after{
+
+    content:"";
+
+    position:absolute;
+
+    width:75px;
+    height:75px;
+
+    left:-5px;
+    top:0;
+
+    border-radius:50%;
+
+    background:#176b25;
+
+    box-shadow:
+    25px -18px 0 #278d31,
+    -22px 10px 0 #1b7926;
+
+}
+
+/* coin */
+
+.coin{
+
+    width:35px;
+    height:35px;
+
+    border-radius:50%;
+
+    background:#ffd700;
+
+    border:5px solid #b8860b;
+
+    box-shadow:0 0 20px #ffd700;
+
+}
+
+/* ================= START ================= */
+
+#startScreen,
+#gameOver{
+
+    position:absolute;
+
+    inset:0;
+
+    z-index:200;
+
+    display:flex;
+
+    justify-content:center;
+
+    align-items:center;
+
+    flex-direction:column;
+
+    text-align:center;
+
+    color:white;
+
+    background:rgba(0,0,0,.72);
+
+}
+
+#gameOver{
+    display:none;
+}
+
+h1{
+
+    font-size:48px;
+
+    margin:10px;
+
+    color:#ffd700;
+
+    text-shadow:
+    3px 3px 5px black;
+
+}
+
+button{
+
+    padding:15px 40px;
+
+    border:0;
+
+    border-radius:30px;
+
+    background:#ff9800;
+
+    color:white;
+
+    font-size:20px;
+
+    font-weight:bold;
+
+    cursor:pointer;
+
+}
+
+button:hover{
+
+    background:#ffb300;
+
+}
+
+.instructions{
+
+    line-height:1.7;
+
+    max-width:550px;
+
+}
+
+/* ================= MOBILE ================= */
+
+#controls{
+
+    position:absolute;
+
+    bottom:15px;
+
+    left:0;
+    right:0;
+
+    z-index:120;
+
+    display:flex;
+
+    justify-content:center;
+
+    gap:8px;
+
+}
+
+.control{
+
+    width:65px;
+    height:55px;
+
+    background:rgba(0,0,0,.55);
+
+    border:2px solid white;
+
+    color:white;
+
+    border-radius:15px;
+
+    display:flex;
+
+    justify-content:center;
+
+    align-items:center;
+
+    font-size:24px;
+
+}
+
+@media(min-width:800px){
+
+    #controls{
+        display:none;
+    }
+
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div id="game">
+
+<div class="sun"></div>
+
+<div class="jungle left"></div>
+<div class="jungle right"></div>
+
+<div id="road">
+
+<div class="roadLine line1"></div>
+<div class="roadLine line2"></div>
+
+</div>
+
+<!-- HUD -->
+
+<div id="hud">
+
+<div class="hud">
+🏃 Score: <span id="score">0</span>
+</div>
+
+<div class="hud">
+🪙 Coins: <span id="coins">0</span>
+</div>
+
+<div class="hud">
+❤️ Lives: <span id="lives">3</span>
+</div>
+
+</div>
+
+<!-- PLAYER -->
+
+<div id="player">
+
+<div class="playerHead"></div>
+
+<div class="playerBody"></div>
+
+<div class="playerLeg left"></div>
+<div class="playerLeg right"></div>
+
+</div>
+
+<!-- TIGER -->
+
+<div id="tiger">
+
+<div class="tigerBody">
+
+<div class="stripe s1"></div>
+<div class="stripe s2"></div>
+<div class="stripe s3"></div>
+
+</div>
+
+<div class="tigerHead">
+
+<div class="ear1"></div>
+<div class="ear2"></div>
+
+<div class="eye eye1"></div>
+<div class="eye eye2"></div>
+
+</div>
+
+</div>
+
+<!-- MOBILE CONTROLS -->
+
+<div id="controls">
+
+<div class="control" onclick="moveLeft()">⬅️</div>
+
+<div class="control" onclick="jump()">⬆️</div>
+
+<div class="control" onclick="slide()">⬇️</div>
+
+<div class="control" onclick="moveRight()">➡️</div>
+
+</div>
+
+<!-- START -->
+
+<div id="startScreen">
+
+<h1>🐯 JUNGLE ESCAPE</h1>
+
+<div class="instructions">
+
+<p>
+You are being chased by a tiger!
+</p>
+
+<p>
+Avoid 🪨 rocks, 🪵 logs and 🌳 trees.
+</p>
+
+<p>
+Collect 🪙 coins and survive as long as possible.
+</p>
+
+<p>
+⬅️ ➡️ Move &nbsp;
+⬆️ Jump &nbsp;
+⬇️ Slide
+</p>
+
+</div>
+
+<button onclick="startGame()">
+START RUN
+</button>
+
+</div>
+
+<!-- GAME OVER -->
+
+<div id="gameOver">
+
+<h1>💀 YOU DIED</h1>
+
+<h2>
+🐯 The tiger caught you!
+</h2>
+
+<h2>
+Score: <span id="finalScore">0</span>
+</h2>
+
+<h2>
+Coins: <span id="finalCoins">0</span>
+</h2>
+
+<button onclick="restartGame()">
+RUN AGAIN
+</button>
+
+</div>
+
+</div>
+
+<script>
+
+/* =====================================================
+   GAME VARIABLES
+===================================================== */
+
+let lane = 1;
+
+let score = 0;
+
+let coins = 0;
+
+let lives = 3;
+
+let speed = 6;
+
+let gameRunning = false;
+
+let objects = [];
+
+let spawnTimer;
+
+let scoreTimer;
+
+let animationID;
+
+let tigerDistance = 0;
+
+
+/* LANE POSITIONS */
+
+const lanes = [
+
+"31%",
+
+"50%",
+
+"69%"
+
+];
+
+const player =
+document.getElementById("player");
+
+const tiger =
+document.getElementById("tiger");
+
+
+/* =====================================================
+   SOUND
+===================================================== */
+
+let audioContext = null;
+
+function initAudio(){
+
+    if(!audioContext){
+
+        audioContext =
+        new (
+            window.AudioContext ||
+            window.webkitAudioContext
+        )();
+
+    }
+
+}
+
+function playSound(type){
+
+    initAudio();
+
+    let oscillator =
+    audioContext.createOscillator();
+
+    let gain =
+    audioContext.createGain();
+
+    oscillator.connect(gain);
+
+    gain.connect(
+        audioContext.destination
+    );
+
+    let frequency = 440;
+
+    let duration = .12;
+
+    if(type === "coin"){
+
+        frequency = 1000;
+        duration = .12;
+
+    }
+
+    if(type === "jump"){
+
+        frequency = 500;
+        duration = .18;
+
+    }
+
+    if(type === "hit"){
+
+        frequency = 100;
+        duration = .4;
+
+    }
+
+    if(type === "death"){
+
+        frequency = 60;
+        duration = .8;
+
+    }
+
+    if(type === "tiger"){
+
+        frequency = 70;
+        duration = .35;
+
+    }
+
+    oscillator.frequency.value =
+        frequency;
+
+    gain.gain.setValueAtTime(
+        .18,
+        audioContext.currentTime
+    );
+
+    gain.gain.exponentialRampToValueAtTime(
+        .001,
+        audioContext.currentTime + duration
+    );
+
+    oscillator.start();
+
+    oscillator.stop(
+        audioContext.currentTime + duration
+    );
+
+}
+
+
+/* =====================================================
+   START GAME
+===================================================== */
+
+function startGame(){
+
+    initAudio();
+
+    document
+    .getElementById("startScreen")
+    .style.display="none";
+
+    gameRunning=true;
+
+    score=0;
+
+    coins=0;
+
+    lives=3;
+
+    speed=6;
+
+    tigerDistance=0;
+
+    updateHUD();
+
+    tiger.style.bottom="-50px";
+
+    spawnLoop();
+
+    scoreTimer=setInterval(
+
+        function(){
+
+            if(!gameRunning)
+                return;
+
+            score++;
+
+            /* increase speed */
+
+            if(score % 150 === 0){
+
+                speed += .7;
+
+            }
+
+            updateHUD();
+
+        },
+
+        100
+
+    );
+
+}
+
+
+/* =====================================================
+   PLAYER MOVEMENT
+===================================================== */
+
+function updatePlayer(){
+
+    player.style.left =
+        "calc(" +
+        lanes[lane] +
+        " - 30px)";
+
+}
+
+function moveLeft(){
+
+    if(!gameRunning)
+        return;
+
+    if(lane > 0){
+
+        lane--;
+
+        updatePlayer();
+
+        playSound("jump");
+
+    }
+
+}
+
+function moveRight(){
+
+    if(!gameRunning)
+        return;
+
+    if(lane < 2){
+
+        lane++;
+
+        updatePlayer();
+
+        playSound("jump");
+
+    }
+
+}
+
+
+/* =====================================================
+   JUMP
+===================================================== */
+
+function jump(){
+
+    if(!gameRunning)
+        return;
+
+    if(
+        player.classList.contains("jump")
+    )
+        return;
+
+    player.classList.add("jump");
+
+    playSound("jump");
+
+    setTimeout(
+
+        function(){
+
+            player.classList.remove("jump");
+
+        },
+
+        700
+
+    );
+
+}
+
+
+/* =====================================================
+   SLIDE
+===================================================== */
+
+function slide(){
+
+    if(!gameRunning)
+        return;
+
+    player.classList.add("slide");
+
+    setTimeout(
+
+        function(){
+
+            player.classList.remove("slide");
+
+        },
+
+        600
+
+    );
+
+}
+
+
+/* =====================================================
+   KEYBOARD
+===================================================== */
+
+document.addEventListener(
+
+"keydown",
+
+function(event){
+
+    if(
+        event.key==="ArrowLeft" ||
+        event.key.toLowerCase()==="a"
+    ){
+
+        moveLeft();
+
+    }
+
+    if(
+        event.key==="ArrowRight" ||
+        event.key.toLowerCase()==="d"
+    ){
+
+        moveRight();
+
+    }
+
+    if(
+        event.key==="ArrowUp" ||
+        event.key===" "
+    ){
+
+        jump();
+
+    }
+
+    if(
+        event.key==="ArrowDown" ||
+        event.key.toLowerCase()==="s"
+    ){
+
+        slide();
+
+    }
+
+}
+
+);
+
+
+/* =====================================================
+   SPAWN OBJECTS
+===================================================== */
+
+function spawnLoop(){
+
+    if(!gameRunning)
+        return;
+
+    spawnObject();
+
+    let delay =
+        Math.max(
+            400,
+            950 - score*.4
+        );
+
+    spawnTimer=setTimeout(
+
+        spawnLoop,
+
+        delay
+
+    );
+
+}
+
+
+/* =====================================================
+   CREATE OBJECT
+===================================================== */
+
+function spawnObject(){
+
+    let object =
+        document.createElement("div");
+
+    let objectLane =
+        Math.floor(
+            Math.random()*3
+        );
+
+    object.style.left =
+        "calc(" +
+        lanes[objectLane] +
+        " - 30px)";
+
+    object.style.top="-130px";
+
+    let random =
+        Math.random();
+
+    let type;
+
+    if(random < .25){
+
+        type="coin";
+
+        object.classList.add(
+            "object",
+            "coin"
+        );
+
+    }
+
+    else if(random < .55){
+
+        type="rock";
+
+        object.classList.add(
+            "object",
+            "rock"
+        );
+
+    }
+
+    else if(random < .8){
+
+        type="log";
+
+        object.classList.add(
+            "object",
+            "log"
+        );
+
+    }
+
+    else{
+
+        type="tree";
+
+        object.classList.add(
+            "object",
+            "tree"
+        );
+
+    }
+
+    document
+    .getElementById("game")
+    .appendChild(object);
+
+    objects.push({
+
+        element:object,
+
+        lane:objectLane,
+
+        type:type,
+
+        y:-130,
+
+        hit:false
+
+    });
+
+}
+
+
+/* =====================================================
+   GAME LOOP
+===================================================== */
+
+function gameLoop(){
+
+    if(!gameRunning){
+
+        animationID =
+            requestAnimationFrame(
+                gameLoop
+            );
+
+        return;
+
+    }
+
+    for(
+        let i=objects.length-1;
+        i>=0;
+        i--
+    ){
+
+        let obj=objects[i];
+
+        obj.y += speed;
+
+        obj.element.style.top =
+            obj.y+"px";
+
+
+        /* =============================================
+           COLLISION AREA
+        ============================================= */
+
+        let playerY =
+            window.innerHeight-170;
+
+        let collisionDistance =
+            90;
+
+
+        if(
+
+            !obj.hit &&
+
+            obj.lane === lane &&
+
+            obj.y >
+                playerY-collisionDistance &&
+
+            obj.y <
+                playerY+60
+
+        ){
+
+            if(obj.type==="coin"){
+
+                collectCoin(
+                    obj,
+                    i
+                );
+
+            }
+
+            else{
+
+                /* Jump avoids obstacle */
+
+                if(
+                    !player.classList.contains(
+                        "jump"
+                    )
+                ){
+
+                    obstacleHit(
+                        obj,
+                        i
+                    );
+
+                }
+
+            }
+
+        }
+
+
+        /* remove */
+
+        if(
+            obj.y >
+            window.innerHeight+150
+        ){
+
+            obj.element.remove();
+
+            objects.splice(i,1);
+
+        }
+
+    }
+
+
+    /* Tiger */
+
+    updateTiger();
+
+
+    animationID =
+        requestAnimationFrame(
+            gameLoop
+        );
+
+}
+
+
+/* =====================================================
+   COIN
+===================================================== */
+
+function collectCoin(
+    obj,
+    index
+){
+
+    coins++;
+
+    score += 25;
+
+    playSound("coin");
+
+    obj.element.remove();
+
+    objects.splice(index,1);
+
+    updateHUD();
+
+}
+
+
+/* =====================================================
+   OBSTACLE HIT
+===================================================== */
+
+function obstacleHit(
+    obj,
+    index
+){
+
+    obj.hit=true;
+
+    lives--;
+
+    /* tiger comes closer */
+
+    tigerDistance += 55;
+
+    playSound("hit");
+
+    obj.element.remove();
+
+    objects.splice(index,1);
+
+    updateHUD();
+
+
+    /* player damage animation */
+
+    player.style.filter =
+        "brightness(3)";
+
+    setTimeout(
+
+        function(){
+
+            player.style.filter =
+                "brightness(1)";
+
+        },
+
+        180
+
+    );
+
+
+    /* tiger roar */
+
+    playSound("tiger");
+
+
+    if(lives<=0){
+
+        endGame();
+
+    }
+
+}
+
+
+/* =====================================================
+   TIGER CHASING PLAYER
+===================================================== */
+
+function updateTiger(){
+
+    if(!gameRunning)
+        return;
+
+
+    /*
+       Tiger gets closer
+       when obstacles are hit.
+    */
+
+    let baseBottom=-50;
+
+    let newBottom =
+        baseBottom +
+        tigerDistance;
+
+
+    /*
+       Maximum distance
+       before tiger catches player.
+    */
+
+    if(newBottom>65){
+
+        newBottom=65;
+
+    }
+
+    tiger.style.bottom =
+        newBottom+"px";
+
+
+    /*
+       If tiger reaches player
+    */
+
+    if(
+        newBottom>=50
+    ){
+
+        endGame();
+
+    }
+
+}
+
+
+/* =====================================================
+   HUD
+===================================================== */
+
+function updateHUD(){
+
+    document
+    .getElementById("score")
+    .textContent =
+        Math.floor(score);
+
+    document
+    .getElementById("coins")
+    .textContent =
+        coins;
+
+    document
+    .getElementById("lives")
+    .textContent =
+        lives;
+
+}
+
+
+/* =====================================================
+   GAME OVER
+===================================================== */
+
+function endGame(){
+
+    if(!gameRunning)
+        return;
+
+    gameRunning=false;
+
+    clearTimeout(
+        spawnTimer
+    );
+
+    clearInterval(
+        scoreTimer
+    );
+
+    playSound("death");
+
+    document
+    .getElementById("finalScore")
+    .textContent =
+        Math.floor(score);
+
+    document
+    .getElementById("finalCoins")
+    .textContent =
+        coins;
+
+    document
+    .getElementById("gameOver")
+    .style.display =
+        "flex";
+
+}
+
+
+/* =====================================================
+   RESTART
+===================================================== */
+
+function restartGame(){
+
+    clearTimeout(
+        spawnTimer
+    );
+
+    clearInterval(
+        scoreTimer
+    );
+
+
+    objects.forEach(
+
+        function(obj){
+
+            obj.element.remove();
+
+        }
+
+    );
+
+    objects=[];
+
+    lane=1;
+
+    tigerDistance=0;
+
+    updatePlayer();
+
+    tiger.style.bottom="-50px";
+
+    document
+    .getElementById("gameOver")
+    .style.display =
+        "none";
+
+    startGame();
+
+}
+
+
+/* =====================================================
+   START ANIMATION
+===================================================== */
+
+updatePlayer();
+
+requestAnimationFrame(
+    gameLoop
+);
+
+</script>
+
+</body>
+</html>
+"""
+
+
+@app.route("/")
+def home():
+    return render_template_string(HTML)
+
+
+if __name__ == "__main__":
+
+    print("""
+=========================================
+       🐯 JUNGLE ESCAPE RUNNER
+=========================================
+
+Open in browser:
+
+http://127.0.0.1:8000
+
+Controls:
+
+←  Move Left
+→  Move Right
+↑  Jump
+↓  Slide
+A  Left
+D  Right
+S  Slide
+SPACE  Jump
+
+=========================================
+""")
+
+    app.run(
+        host="127.0.0.1",
+        port=8000,
+        debug=True
+    )
